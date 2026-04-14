@@ -1,0 +1,22 @@
+{
+  "name": "@wrio/bizcom-engine",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.9",
+    "typescript": "^5.5.3",
+    "vite": "^5.0.0",
+    "vitest": "2.1.9"
+  },
+  "scripts": {
+    "build": "echo 'No build step required'",
+    "check": "tsc --noEmit -p ./tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  }
+}
