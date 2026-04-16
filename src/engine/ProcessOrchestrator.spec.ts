@@ -15,6 +15,11 @@ describe("ProcessOrchestrator", () => {
       saveProcessState: vi.fn().mockResolvedValue(undefined),
       getResolvedDocument: vi.fn(),
       getS3Contents: vi.fn(),
+      getOrganizationStructure: vi.fn(),
+      getJsonldFromS3: vi.fn(),
+      getBpmnFromS3: vi.fn(),
+      getProcessDetails: vi.fn(),
+      getProcessDemoLogs: vi.fn(),
     };
     mockExecutor = {
       executeStep: vi.fn(),
@@ -60,7 +65,9 @@ describe("ProcessOrchestrator", () => {
   });
 
   it("should throw error and update log on step execution failure", async () => {
-    (mockExecutor.executeStep as any).mockRejectedValue(new Error("Executor failed"));
+    (mockExecutor.executeStep as any).mockRejectedValue(
+      new Error("Executor failed"),
+    );
 
     const request: ProcessRequest = {
       action: "start",
@@ -71,12 +78,12 @@ describe("ProcessOrchestrator", () => {
     };
 
     await expect(orchestrator.handleProcessExecution(request)).rejects.toThrow(
-      "Failed to execute workflow step"
+      "Failed to execute workflow step",
     );
 
     expect(mockLogs.updateLog).toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({ status: "error" })
+      expect.objectContaining({ status: "error" }),
     );
   });
 });
