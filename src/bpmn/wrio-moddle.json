@@ -1,0 +1,47 @@
+{
+  "name": "Wrio",
+  "uri": "http://wrio.io/schema/bpmn/wrio",
+  "prefix": "wrio",
+  "xml": {
+    "tagAlias": "lowerCase"
+  },
+  "types": [
+    {
+      "name": "Node",
+      "superClass": ["Element"],
+      "properties": [
+        {
+          "name": "category",
+          "isAttr": true,
+          "type": "String"
+        },
+        {
+          "name": "action",
+          "isAttr": true,
+          "type": "String"
+        },
+        {
+          "name": "params",
+          "type": "Param",
+          "isMany": true
+        }
+      ]
+    },
+    {
+      "name": "Param",
+      "superClass": ["Element"],
+      "properties": [
+        {
+          "name": "name",
+          "isAttr": true,
+          "type": "String"
+        },
+        {
+          "name": "value",
+          "isBody": true,
+          "type": "String"
+        }
+      ]
+    }
+  ]
+}

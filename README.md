@@ -1,24 +1,136 @@
-# Bizcom Engine
+# @wrio/bizcom-engine
 
-Core process execution logic for the Bizcom ecosystem. This package includes the interpreter, BPMN converter, and standard node set.
+Open-core BPMN execution engine for the WRIO Bizcom ecosystem. A platform-agnostic workflow engine inspired by Camunda: parse BPMN, define processes in JSON-LD, execute them with gateways/errors/retries — **without any Cloudflare dependency**.
 
-## ⚠️ Source of Truth
+> ⚠️ **Source of Truth**: This repo is a **read-only mirror** of `packages/bizcom-engine` in the [WRIO-LTD/monorepo](https://github.com/WRIO-LTD/monorepo). All development and CI/CD happen in the monorepo; approved PRs are synced back automatically.
 
-This repository is a **read-only mirror** of the `packages/bizcom-engine` directory in the [WRIO-LTD/monorepo](https://github.com/WRIO-LTD/monorepo).
+## Features
 
-**All primary development and CI/CD happen in the monorepo.**
+- **ProcessModel** — typed canonical model: `ProcessDefinition`, `Step`, `Transition`, `Gateway`, `VariablesContext`, `Incident`, `HistoryEvent`
+- **BPMN round-trip** — `parseBpmn(xml)` (BPMN 2.0 → `ProcessDefinition`) and `serializeBpmn(definition)` (JSON-LD → BPMN 2.0 XML), Extended subset: tasks + exclusive/inclusive/parallel gateways + call activity + boundary events + subprocess
+- **ProcessInterpreter** — pure graph interpreter: sequential execution, gateway routing, `on_error` transitions, subprocesses, per-step retry, incidents
+- **VariablesContext** — `{sys, input, steps, vars, history}` with **jexl** expressions + `{{ ... }}` interpolation
+- **Validator** — runtime checks (reachability, gateway balance, dead-ends, transition targets)
+- **IncidentManager** — create/resolve/exhaust incidents with retry policies
+- **Built-in OSS handlers** — `core.delay`, `core.jexl`, `core.noop`, `core.for_each`, `core.filter`, `http.request`, `web.fetch_content` — run on plain `fetch()`
+- **Ports & Adapters** — `IStateStore`, `IHistoryStore`, `IStepRuntime`, `IJobQueue`, `INodeHandler` keep the core infra-free
+
+## Quickstart
+
+```bash
+npm install @wrio/bizcom-engine
+```
+
+Run a process entirely in-memory — no Cloudflare, no database:
+
+```ts
+import {
+  ProcessInterpreter,
+  createInMemoryPorts,
+  createBuiltinHandlers,
+  JexlExpressionEvaluator,
+} from "@wrio/bizcom-engine";
+
+// 1. In-memory adapters + built-in nodes
+const ports = createInMemoryPorts();
+for (const [action, fn] of Object.entries(createBuiltinHandlers())) {
+  ports.nodeHandler.register(action, fn);
+}
+
+// 2. Define a process (JSON-LD)
+const definition = {
+  "@context": "https://wr.io/workflow",
+  "@type": "Process",
+  "@id": "my-process",
+  name: "My Process",
+  version: "1.0.0",
+  entry_point_id: "start",
+  steps: [
+    { "@type": "Step", "@id": "start", name: "Start", step_type: "start",
+      transitions: [{ target_id: "calc" }] },
+    { "@type": "Step", "@id": "calc", name: "Calculate", step_type: "service",
+      action: "core.jexl", params: { expression: "input.amount * 2" },
+      transitions: [{ target_id: "end" }] },
+    { "@type": "Step", "@id": "end", name: "End", step_type: "end" },
+  ],
+};
+
+// 3. Run it
+const interpreter = new ProcessInterpreter({ ports: ports.ports });
+const result = await interpreter.run(definition, { amount: 21 });
+console.log(result.status);            // "completed"
+console.log(result.context.steps);     // { start: {}, calc: { result: 42 }, end: {} }
+console.log(result.context.history);   // ["start", "calc", "end"]
+```
+
+## BPMN round-trip
+
+```ts
+import { parseBpmn, serializeBpmn } from "@wrio/bizcom-engine";
+
+// XML → ProcessDefinition
+const definition = await parseBpmn(bpmnXml);
+
+// ProcessDefinition → XML
+const xml = serializeBpmn(definition);
+
+// Full round-trip
+const roundTripDef = await parseBpmn(serializeBpmn(definition));
+```
+
+## Custom node handlers
+
+Beyond the built-ins, register your own business logic:
+
+```ts
+ports.nodeHandler.register("my.send_email", async (params, context) => {
+  // params already interpolated with {{ vars.x }} / {{ input.y }}
+  const res = await fetch(params.api_url, { method: "POST", body: JSON.stringify(params) });
+  return { sent: res.ok };
+});
+```
+
+## Retry & errors
+
+Per-step retry is driven by `step.retry`:
+
+```json
+{
+  "step_type": "service",
+  "action": "http.request",
+  "retry": { "max_attempts": 3, "delay_ms": 1000, "backoff": "exponential", "max_delay": 30000 },
+  "transitions": [{ "target_id": "next" }, { "target_id": "error_handler", "on_error": true }]
+}
+```
+
+On failure: node is retried per `retry` config; if it still throws, `on_error` transition is taken; otherwise an `Incident` is created and the process fails.
+
+## Ports & Adapters
+
+Core depends only on interfaces — bring your own infra:
+
+| Port | Responsibility |
+|---|---|
+| `INodeHandler` | executes a step's `action` |
+| `IStepRuntime` | `sleep` / `wait` / `emit` (timers, user tasks) |
+| `IHistoryStore` | append-only event stream |
+| `IJobQueue` | async retry/incident queue |
+| `IStateStore` | definition + state persistence |
+
+`createInMemoryPorts()` provides in-memory implementations for local/dev/CI use.
+
+## Open-core boundary
+
+**Core (OSS)**: `ProcessInterpreter`, model, BPMN parser/serializer, variables + jexl, validation, incidents, built-in handlers, ports.
+**Enterprise (Proprietary)**: Cloudflare adapters (D1, R2, CF Workflows), enterprise handlers (`db.*`, `ai.chat`, `email.send`, `telegram.*`, `storage.*`, `rss.fetch`), Stripe.
 
 ## Contributing
 
-We value community contributions! To contribute to Bizcom Engine:
-
-1. **Submit a PR**: Feel free to open a Pull Request in this repository.
-2. **Review**: Our maintainers will review your PR here.
-3. **Integration**: Approved PRs will be pulled into the `WRIO-LTD/monorepo` by a maintainer using a specialized sync script.
-4. **Mirroring**: Once merged into the monorepo's `master` branch, your changes will be automatically mirrored back to this repository.
-
-Please do not be surprised if your PR is closed with a reference to a commit in the monorepo; this is how we maintain a single source of truth.
+1. Submit a PR to this repo.
+2. Maintainers review it.
+3. Approved PRs are pulled into `WRIO-LTD/monorepo`.
+4. Changes are auto-mirrored back here.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details (if available).
+MIT

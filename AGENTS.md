@@ -4,8 +4,8 @@
 
 ## Open-Core Boundary
 
-**Core (OSS)**: `ProcessOrchestrator`, BPMN converter, Ports (interfaces), Base SDK, standard nodes.
-**Enterprise (Proprietary)**: Infrastructure adapters, Stripe, AI nodes, proprietary UI components.
+**Core (OSS)**: `ProcessInterpreter`, ProcessModel types, BPMN parser + serializer (Extended subset), VariablesContext + jexl, Validation, incident/retry model, Ports (`IStateStore`, `IHistoryStore`, `IStepRuntime`, `IJobQueue`, `INodeHandler`). OSS built-in handlers (`http.request`, `web.fetch_content`, `core.*`) — implemented in `src/handlers/builtin.ts` (`createBuiltinHandlers()`), run on plain `fetch()` only.
+**Enterprise (Proprietary)**: CF infrastructure adapters (D1, R2, CF Workflows), enterprise handlers (`db.*`, `ai.chat`, `email.send`, `telegram.*`, `storage.*`, `rss.fetch`), Stripe, proprietary UI components.
 
 ## Key Rules
 
@@ -24,9 +24,14 @@
 
 ```
 src/
-  engine/     # ProcessOrchestrator, execution loop, state management
-  bpmn/       # BPMN 2.0 XML → JSON-LD converter
-  ports/      # IStorageAdapter, IWorkflowExecutor, ILogRepository interfaces
+  model/      # Canonical domain types (ProcessDefinition, Step, VariablesContext, Incident, HistoryEvent)
+  engine/     # ProcessInterpreter, execution loop, state management
+  bpmn/       # BPMN 2.0 XML ↔ JSON-LD converter (parser + serializer)
+  handlers/   # Built-in OSS handlers (http.request, web.fetch_content, core.*)
+  variables/  # VariablesContext, jexl evaluator, interpolation
+  incidents/  # IncidentManager, retry policies
+  validation/ # Runtime definition validation
+  ports/      # IStateStore, IHistoryStore, IStepRuntime, IJobQueue, INodeHandler interfaces
   utils/      # Pure utilities
 ```
 

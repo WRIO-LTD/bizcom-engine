@@ -1,22 +1,53 @@
 {
   "name": "@wrio/bizcom-engine",
-  "version": "1.0.0",
-  "private": true,
+  "version": "2.0.0",
+  "description": "Open-core BPMN execution engine — platform-agnostic process interpreter with BPMN round-trip, jexl variables, incidents and retry",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "keywords": [
+    "bpmn",
+    "workflow",
+    "process",
+    "engine",
+    "orchestration",
+    "wrio"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "bpmn-moddle": "^9.0.4",
+    "jexl": "^2.3.0"
   },
   "devDependencies": {
+    "@types/bpmn-moddle": "^9.0.0",
     "@vitest/coverage-v8": "^2.1.9",
     "typescript": "^5.5.3",
     "vite": "^5.0.0",
     "vitest": "2.1.9"
   },
   "scripts": {
-    "build": "echo 'No build step required'",
+    "build": "tsc -p ./tsconfig.build.json && cp jexl.d.ts dist/jexl.d.ts",
     "check": "tsc --noEmit -p ./tsconfig.json",
+    "prepare": "pnpm run build",
+    "prepublishOnly": "pnpm run check && pnpm run test && pnpm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

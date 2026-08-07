@@ -1,4 +1,4 @@
-import { ProcessState } from "./types";
+import type { ProcessState } from "./types";
 
 export interface IStorageAdapter {
   saveProcessState(
