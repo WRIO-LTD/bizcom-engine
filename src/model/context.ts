@@ -18,6 +18,7 @@ export interface ProcessSystem {
   project_id: string;
   started_at: string;
   is_dev: boolean;
+  error_count?: number;
 }
 
 export interface VariablesContext extends ProcessEnvelope {

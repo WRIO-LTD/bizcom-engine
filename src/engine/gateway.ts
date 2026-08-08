@@ -26,13 +26,15 @@ export async function getNextStep(
     return evaluateGateway(step, normalTransitions, context, evaluateCondition);
   }
 
-  // Non-gateway steps: evaluate conditions on ALL steps, not just gateways.
-  // Matches original GeneralWorkflow.getNextStepId(): first unconditioned
-  // transition wins, otherwise first transition whose condition is true wins.
+  // Non-gateway steps: evaluate conditions, prefer first true condition
+  // over default (unconditioned) transition, regardless of order.
+  // Default is taken only when NO condition matches.
   if (normalTransitions.some((t) => t.condition)) {
+    let defaultTarget: string | undefined;
     for (const t of normalTransitions) {
       if (!t.condition) {
-        return { kind: "single", target_id: t.target_id };
+        defaultTarget = defaultTarget ?? t.target_id;
+        continue;
       }
       const isTrue = await evaluateCondition.evaluate(
         t.condition,
@@ -41,6 +43,9 @@ export async function getNextStep(
       if (isTrue) {
         return { kind: "single", target_id: t.target_id };
       }
+    }
+    if (defaultTarget) {
+      return { kind: "single", target_id: defaultTarget };
     }
     return { kind: "end" };
   }

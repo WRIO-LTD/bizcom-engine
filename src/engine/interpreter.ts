@@ -26,7 +26,6 @@ export class ProcessInterpreter {
   incidentManager: IncidentManager;
   context: VariablesContext | null = null;
   definition: ProcessDefinition | null = null;
-  consecutiveErrorCount = 0;
   private systemMeta: Partial<ProcessSystem> = {};
 
   constructor(options: InterpreterOptions) {
@@ -44,7 +43,7 @@ export class ProcessInterpreter {
     this.definition = definition;
     this.systemMeta = systemOverrides || {};
     this.context = this.buildContext(definition, input, initialVars, systemOverrides);
-    this.consecutiveErrorCount = 0;
+    this.context.sys.error_count = 0;
     this.incidentManager.clear(this.context.sys.instance_id);
     return definition.entry_point_id;
   }
@@ -79,7 +78,7 @@ export class ProcessInterpreter {
     try {
       const output = await this.executeStep(step, context);
       context.steps[currentStepId] = output;
-      this.consecutiveErrorCount = 0;
+      context.sys.error_count = 0;
 
       await this.appendHistory({
         event_type: "step_completed",
@@ -95,10 +94,10 @@ export class ProcessInterpreter {
 
       const errorTransitionTarget = getErrorTransition(step);
       if (errorTransitionTarget) {
-        this.consecutiveErrorCount++;
-        if (this.consecutiveErrorCount > this.maxErrorTransitions) {
+        context.sys.error_count = (context.sys.error_count ?? 0) + 1;
+        if (context.sys.error_count > this.maxErrorTransitions) {
           throw new Error(
-            `Workflow failed after ${this.consecutiveErrorCount} consecutive error transitions: ${errorMessage}`,
+            `Workflow failed after ${context.sys.error_count} consecutive error transitions: ${errorMessage}`,
           );
         }
         context.steps[currentStepId] = {
@@ -130,8 +129,15 @@ export class ProcessInterpreter {
       return { nextStepId: nextResult.target_id, context };
     }
 
+    // Parallel fork: execute each branch's step (sequentially within this tick
+    // for CF-replay safety), store outputs, then continue to the join target.
+    const joinTarget = await this.handleParallelFork(
+      nextResult.target_ids,
+      definition,
+      context,
+    );
     return {
-      nextStepId: nextResult.target_ids[nextResult.target_ids.length - 1] || null,
+      nextStepId: joinTarget ?? null,
       context,
     };
   }
@@ -363,20 +369,17 @@ export class ProcessInterpreter {
   ): Promise<string | undefined> {
     const joinTargetId = targetIds[targetIds.length - 1];
 
-    const results = await Promise.allSettled(
-      targetIds.map(async (targetId) => {
-        const step = this.findStep(definition, targetId);
-        const output = await this.executeStep(step, context);
-        context.steps[targetId] = output;
-        return { targetId, output };
-      }),
-    );
-
-    const failed = results.filter((r) => r.status === "rejected");
-    if (failed.length > 0) {
-      throw new Error(
-        `Parallel branch failed: ${(failed[0] as PromiseRejectedResult).reason}`,
-      );
+    // Execute branches sequentially: CF Workflows durable replay is per-step.do,
+    // so true concurrency would lose per-branch checkpoints. Sequential is
+    // replay-safe; outputs are stored per branch id in context.steps.
+    for (const targetId of targetIds) {
+      const step = this.findStep(definition, targetId);
+      if (step.step_type === "gateway") continue; // join gateway handled by loop
+      if (!context.history.includes(targetId)) {
+        context.history.push(targetId);
+      }
+      const output = await this.executeStep(step, context);
+      context.steps[targetId] = output;
     }
 
     return joinTargetId;

@@ -542,4 +542,156 @@ describe("ProcessInterpreter", () => {
       "End",
     ]);
   });
+
+  it("parallel fork: executes all branches and continues to join", async () => {
+    const forkDef: ProcessDefinition = {
+      "@context": "https://wr.io/workflow",
+      "@type": "Process",
+      "@id": "fork-test",
+      name: "Fork Test",
+      version: "1.0.0",
+      entry_point_id: "start",
+      steps: [
+        {
+          "@type": "Step",
+          "@id": "start",
+          name: "Start",
+          step_type: "start",
+          transitions: [{ target_id: "fork" }],
+        },
+        {
+          "@type": "Step",
+          "@id": "fork",
+          name: "Fork",
+          step_type: "gateway",
+          gateway_type: "parallel_fork",
+          transitions: [{ target_id: "branch_a" }, { target_id: "branch_b" }],
+        },
+        {
+          "@type": "Step",
+          "@id": "branch_a",
+          name: "Branch A",
+          step_type: "service",
+          action: "test.a",
+          transitions: [{ target_id: "join" }],
+        },
+        {
+          "@type": "Step",
+          "@id": "branch_b",
+          name: "Branch B",
+          step_type: "service",
+          action: "test.b",
+          transitions: [{ target_id: "join" }],
+        },
+        {
+          "@type": "Step",
+          "@id": "join",
+          name: "Join",
+          step_type: "gateway",
+          gateway_type: "parallel_join",
+          transitions: [{ target_id: "end" }],
+        },
+        { "@type": "Step", "@id": "end", name: "End", step_type: "end" },
+      ],
+    };
+
+    adapters.nodeHandler.register("test.a", async () => ({ branch: "a" }));
+    adapters.nodeHandler.register("test.b", async () => ({ branch: "b" }));
+
+    const result = await interpreter.run(forkDef);
+
+    expect(result.status).toBe("completed");
+    expect(result.context.steps["branch_a"]).toEqual({ branch: "a" });
+    expect(result.context.steps["branch_b"]).toEqual({ branch: "b" });
+    expect(result.context.history).toEqual(["start", "fork", "branch_a", "branch_b", "join", "end"]);
+  });
+
+  it("error_count tracks consecutive on_error transitions and resets on success", async () => {
+    const errDef: ProcessDefinition = {
+      "@context": "https://wr.io/workflow",
+      "@type": "Process",
+      "@id": "err-count",
+      name: "Err Count",
+      version: "1.0.0",
+      entry_point_id: "start",
+      steps: [
+        {
+          "@type": "Step",
+          "@id": "start",
+          name: "Start",
+          step_type: "start",
+          transitions: [{ target_id: "risky" }],
+        },
+        {
+          "@type": "Step",
+          "@id": "risky",
+          name: "Risky",
+          step_type: "service",
+          action: "test.risky",
+          transitions: [
+            { target_id: "handler", on_error: true },
+          ],
+        },
+        {
+          "@type": "Step",
+          "@id": "handler",
+          name: "Handler",
+          step_type: "service",
+          action: "test.handler",
+          transitions: [{ target_id: "end" }],
+        },
+        { "@type": "Step", "@id": "end", name: "End", step_type: "end" },
+      ],
+    };
+
+    adapters.nodeHandler.register("test.risky", async () => {
+      throw new Error("boom");
+    });
+    adapters.nodeHandler.register("test.handler", async () => ({ ok: true }));
+
+    const result = await interpreter.run(errDef);
+
+    expect(result.status).toBe("completed");
+    // After on_error → handler success, error_count is reset to 0
+    expect(result.context.sys.error_count).toBe(0);
+  });
+
+  it("error_count exceeds max → process fails (error loop guard)", async () => {
+    const loopDef: ProcessDefinition = {
+      "@context": "https://wr.io/workflow",
+      "@type": "Process",
+      "@id": "err-loop",
+      name: "Err Loop",
+      version: "1.0.0",
+      entry_point_id: "start",
+      steps: [
+        {
+          "@type": "Step",
+          "@id": "start",
+          name: "Start",
+          step_type: "start",
+          transitions: [{ target_id: "failer" }],
+        },
+        {
+          "@type": "Step",
+          "@id": "failer",
+          name: "Failer",
+          step_type: "service",
+          action: "test.failer",
+          transitions: [
+            { target_id: "failer", on_error: true },
+          ],
+        },
+      ],
+    };
+
+    adapters.nodeHandler.register("test.failer", async () => {
+      throw new Error("always fails");
+    });
+
+    const result = await interpreter.run(loopDef);
+
+    expect(result.status).toBe("failed");
+    expect(result.context.sys.error_count).toBe(4); // MAX_ERROR_TRANSITIONS(3) + 1
+  });
 });
