@@ -94,6 +94,8 @@ const xml = serializeBpmn(definition);
 const roundTripDef = await parseBpmn(serializeBpmn(definition));
 ```
 
+> **Parallel gateways:** forks execute branches **sequentially** on CF Workflows (for deterministic replay safety). In local/in-memory mode, you can run them concurrently via your own `INodeHandler` bridge. True parallel-fork durability on Cloudflare is tracked as future work. See [ADR-001](https://github.com/WRIO-LTD/monorepo/blob/master/docs/adr/bizcom-engine/001-pure-interpreter-engine.md).
+
 ## Custom node handlers
 
 Beyond the built-ins, register your own business logic:
