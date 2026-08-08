@@ -367,14 +367,12 @@ export class ProcessInterpreter {
     definition: ProcessDefinition,
     context: VariablesContext,
   ): Promise<string | undefined> {
-    const joinTargetId = targetIds[targetIds.length - 1];
-
     // Execute branches sequentially: CF Workflows durable replay is per-step.do,
     // so true concurrency would lose per-branch checkpoints. Sequential is
     // replay-safe; outputs are stored per branch id in context.steps.
     for (const targetId of targetIds) {
       const step = this.findStep(definition, targetId);
-      if (step.step_type === "gateway") continue; // join gateway handled by loop
+      if (step.step_type === "gateway") continue; // join gateway handled below
       if (!context.history.includes(targetId)) {
         context.history.push(targetId);
       }
@@ -382,7 +380,10 @@ export class ProcessInterpreter {
       context.steps[targetId] = output;
     }
 
-    return joinTargetId;
+    // Real join = the common successor ALL branches converge on (their first
+    // non-error transition target). Falls back to first branch's next if they
+    // diverge (process design issue, but don't silently drop).
+    return findParallelJoin(targetIds, definition);
   }
 
   private async offerRetryOrFail(
@@ -487,4 +488,24 @@ function resolvePath(
     }
   }
   return current;
+}
+
+function findParallelJoin(
+  branchIds: string[],
+  definition: ProcessDefinition,
+): string | undefined {
+  const successors = new Set<string>();
+  for (const branchId of branchIds) {
+    const branch = definition.steps.find((s) => s["@id"] === branchId);
+    const normal = (branch?.transitions || []).find((t) => !t.on_error);
+    if (normal) successors.add(normal.target_id);
+  }
+  // If all branches converge on the same single successor, that's the join.
+  if (successors.size === 1) {
+    return [...successors][0];
+  }
+  // Diverging branches: return the first branch's successor (design issue,
+  // documented — do not silently drop).
+  const first = definition.steps.find((s) => s["@id"] === branchIds[0]);
+  return first?.transitions?.find((t) => !t.on_error)?.target_id;
 }

@@ -170,7 +170,7 @@ describe("GatewayEvaluator", () => {
     }
   });
 
-  it("inclusive gateway: all matching branches", async () => {
+  it("inclusive gateway: all matching branches (default excluded when conditions match)", async () => {
     const step = {
       "@type": "Step" as const,
       "@id": "gw",
@@ -184,10 +184,32 @@ describe("GatewayEvaluator", () => {
       ],
     };
 
+    // x>0 true, y>0 false → only "a" matches; default "c" is NOT taken
     const result = await getNextStep(step, makeContext({ x: 1, y: 0 }), evaluator);
-    expect(result.kind).toBe("parallel");
-    if (result.kind === "parallel") {
-      expect(result.target_ids).toEqual(["a", "c"]);
+    expect(result.kind).toBe("single");
+    if (result.kind === "single") {
+      expect(result.target_id).toBe("a");
+    }
+  });
+
+  it("inclusive gateway: default taken when NO condition matches", async () => {
+    const step = {
+      "@type": "Step" as const,
+      "@id": "gw",
+      name: "Split",
+      step_type: "gateway" as const,
+      gateway_type: "inclusive" as const,
+      transitions: [
+        { target_id: "a", condition: "vars.x > 0" },
+        { target_id: "b", condition: "vars.y > 0" },
+        { target_id: "c" },
+      ],
+    };
+
+    const result = await getNextStep(step, makeContext({ x: 0, y: 0 }), evaluator);
+    expect(result.kind).toBe("single");
+    if (result.kind === "single") {
+      expect(result.target_id).toBe("c");
     }
   });
 

@@ -123,16 +123,22 @@ async function evaluateInclusiveGateway(
   evaluateCondition: ExpressionEvaluator,
 ): Promise<NextStepResult> {
   const matching: string[] = [];
+  let defaultTarget: string | undefined;
 
   for (const t of transitions) {
     if (!t.condition) {
-      matching.push(t.target_id);
+      defaultTarget = defaultTarget ?? t.target_id;
       continue;
     }
     const result = await evaluateCondition.evaluate(t.condition, context as unknown as Record<string, unknown>);
     if (result) {
       matching.push(t.target_id);
     }
+  }
+
+  // Default is a fallback: only when NO condition matched.
+  if (matching.length === 0 && defaultTarget) {
+    return { kind: "single", target_id: defaultTarget };
   }
 
   if (matching.length === 0) return { kind: "end" };

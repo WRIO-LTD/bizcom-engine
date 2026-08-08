@@ -47,8 +47,17 @@ export function createBuiltinHandlers(opts?: BuiltinHandlerContext): Record<stri
       if (!expression) {
         throw new Error("core.jexl: missing expression param");
       }
+      // Sandbox: evaluate against sys/input/steps/vars/history ONLY.
+      // Never expose `secrets`/env to user-defined jexl expressions (injection).
+      const sandboxCtx: Record<string, unknown> = {
+        sys: ctx.sys,
+        input: ctx.input,
+        steps: ctx.steps,
+        vars: ctx.vars,
+        history: ctx.history,
+      };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await jexlEvaluator.eval(expression, ctx as any); // AS_ANY_JUSTIFICATION: VariablesContext lacks index signature; jexl needs Record
+      const result = await jexlEvaluator.eval(expression, sandboxCtx);
       return { result };
     },
 
