@@ -1,8 +1,24 @@
 # @wrio/bizcom-engine
 
-Open-core BPMN execution engine for the WRIO Bizcom ecosystem. A platform-agnostic workflow engine inspired by Camunda: parse BPMN, define processes in JSON-LD, execute them with gateways/errors/retries — **without any Cloudflare dependency**.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-✓-3178C6?logo=typescript)](#)
+[![Tests](https://img.shields.io/badge/tests-118-brightgreen)](#)
+[![Mirror](https://img.shields.io/badge/mirror-automated-brightgreen)](#-source-of-truth)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+An open-core BPMN execution engine. A platform-agnostic workflow engine inspired by Camunda: parse BPMN 2.0, define processes in JSON-LD, execute them with gateways, error handling, and per-step retry — **without any Cloudflare dependency**.
 
 > ⚠️ **Source of Truth**: This repo is a **read-only mirror** of `packages/bizcom-engine` in the [WRIO-LTD/monorepo](https://github.com/WRIO-LTD/monorepo). All development and CI/CD happen in the monorepo; approved PRs are synced back automatically.
+
+## Using @wrio/bizcom-engine, you can:
+
+- Define processes visually in [BPMN 2.0](https://www.omg.org/spec/BPMN/2.0.2/) and import them as JSON-LD
+- Execute processes with exclusive, inclusive, and parallel gateways
+- Handle errors with `on_error` transitions and per-step exponential-backoff retry
+- Use built-in OSS nodes: `http.request`, `web.fetch_content`, `core.jexl`, `core.delay`, `core.for_each`, `core.filter`
+- Run entirely in-memory — no database, no infrastructure, no Cloudflare
+- Bring your own adapters (D1, Postgres, Redis, Kafka) through five thin ports
+- Scale to production on Cloudflare via enterprise adapters (WRIO Cloud)
 
 ## Features
 
@@ -124,6 +140,20 @@ Core depends only on interfaces — bring your own infra:
 **Core (OSS)**: `ProcessInterpreter`, model, BPMN parser/serializer, variables + jexl, validation, incidents, built-in handlers, ports.
 **Enterprise (Proprietary)**: Cloudflare adapters (D1, R2, CF Workflows), enterprise handlers (`db.*`, `ai.chat`, `email.send`, `telegram.*`, `storage.*`, `rss.fetch`), Stripe.
 
+## Status
+
+[![Mirror](https://img.shields.io/badge/mirror-automated-brightgreen)](#-source-of-truth)
+
+Track active development in the [monorepo](https://github.com/WRIO-LTD/monorepo) (private). Community contributions are reviewed here.
+
+## Helpful Links
+
+- [WRIO — product site](https://wr.io)
+- [BizCom Engine BDD Spec](https://github.com/WRIO-LTD/monorepo/blob/master/docs/specs/bizcom/BizcomEngine_BDD.md)
+- [Architecture Decision Records](https://github.com/WRIO-LTD/monorepo/tree/master/docs/adr/bizcom-engine)
+- [Issue Tracker](https://github.com/WRIO-LTD/bizcom-engine/issues)
+- [Discussions](https://github.com/WRIO-LTD/bizcom-engine/discussions)
+
 ## Contributing
 
 1. Submit a PR to this repo.
@@ -131,6 +161,10 @@ Core depends only on interfaces — bring your own infra:
 3. Approved PRs are pulled into `WRIO-LTD/monorepo`.
 4. Changes are auto-mirrored back here.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## License
 
-MIT
+Core engine — MIT. Enterprise adapters and Cloudflare-specific code (not in this repo) — proprietary.
+
+See [LICENSE](LICENSE) for details.
