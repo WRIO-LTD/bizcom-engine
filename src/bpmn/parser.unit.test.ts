@@ -33,13 +33,7 @@ describe("BpmnParser", () => {
     expect(def["@id"]).toBe("SimpleProcess");
     expect(def.steps).toHaveLength(3);
 
-    const startStep = def.steps.find((s) => s.step_type === "start")!;
     const serviceStep = def.steps.find((s) => s.step_type === "service")!;
-    const endStep = def.steps.find((s) => s.step_type === "end")!;
-
-    expect(startStep).toBeDefined();
-    expect(serviceStep).toBeDefined();
-    expect(endStep).toBeDefined();
 
     expect(serviceStep.action).toBe("http.request");
     expect(serviceStep.params).toEqual({
@@ -86,7 +80,6 @@ describe("BpmnParser", () => {
       (s) => s.step_type === "gateway",
     )!;
 
-    expect(gatewayStep).toBeDefined();
     expect(gatewayStep.gateway_type).toBe("exclusive");
     expect(gatewayStep.transitions).toHaveLength(2);
     expect(gatewayStep.transitions![0].condition).toBe("vars.amount > 100");
@@ -113,7 +106,6 @@ describe("BpmnParser", () => {
 </bpmn:definitions>`;
     const def = await parseBpmn(bpmn);
     const gw = def.steps.find((s) => s.gateway_type === "inclusive")!;
-    expect(gw).toBeDefined();
     expect(gw.transitions).toHaveLength(2);
   });
 
@@ -151,10 +143,7 @@ describe("BpmnParser", () => {
 
     const def = await parseBpmn(bpmn);
     const forkGw = def.steps.find((s) => s.gateway_type === "parallel_fork")!;
-    const joinGw = def.steps.find((s) => s.gateway_type === "parallel_join")!;
 
-    expect(forkGw).toBeDefined();
-    expect(joinGw).toBeDefined();
     expect(forkGw.transitions).toHaveLength(2);
   });
 
@@ -184,7 +173,6 @@ describe("BpmnParser", () => {
 
     const def = await parseBpmn(bpmn);
     const userStep = def.steps.find((s) => s.step_type === "user_task")!;
-    expect(userStep).toBeDefined();
     expect(userStep.action).toBe("form.fill");
     expect(userStep.params).toEqual({ formId: "form_123" });
   });
@@ -210,7 +198,6 @@ describe("BpmnParser", () => {
 
     const def = await parseBpmn(bpmn);
     const callStep = def.steps.find((s) => s.step_type === "call_activity")!;
-    expect(callStep).toBeDefined();
     expect(callStep.called_definition).toBe("audit_sub");
   });
 

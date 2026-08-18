@@ -13,7 +13,7 @@ function makeContext(vars: Record<string, unknown> = {}): VariablesContext {
       owner_identifier: "u1",
       initiator: "u1",
       project_id: "p1",
-      started_at: new Date().toISOString(),
+      started_at: "2024-01-15T12:00:00.000Z",
       is_dev: false,
     },
     input: {},

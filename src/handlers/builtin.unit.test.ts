@@ -1,6 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { createBuiltinHandlers, BUILTIN_HANDLER_IDS } from "./builtin";
 import type { VariablesContext } from "../model/context";
+
+const FIXED_STARTED_AT = "2024-01-15T12:00:00.000Z";
 
 function makeContext(overrides: Partial<VariablesContext> = {}): VariablesContext {
   return {
@@ -12,7 +14,7 @@ function makeContext(overrides: Partial<VariablesContext> = {}): VariablesContex
       owner_identifier: "u1",
       initiator: "u1",
       project_id: "p1",
-      started_at: new Date().toISOString(),
+      started_at: FIXED_STARTED_AT,
       is_dev: false,
     },
     input: {},
@@ -22,6 +24,10 @@ function makeContext(overrides: Partial<VariablesContext> = {}): VariablesContex
     ...overrides,
   };
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("Builtin OSS Handlers", () => {
   it("exposes all declared handler ids", () => {
@@ -57,12 +63,11 @@ describe("Builtin OSS Handlers", () => {
   });
 
   it("core.delay waits and returns duration_seconds", async () => {
+    vi.useFakeTimers();
     const handlers = createBuiltinHandlers();
-    const start = Date.now();
-    const out = await handlers["core.delay"]({ seconds: 0.05 }, makeContext());
-    const elapsed = Date.now() - start;
-    expect(elapsed).toBeGreaterThanOrEqual(40);
-    expect(out.duration_seconds).toBe(0.05);
+    const pending = handlers["core.delay"]({ seconds: 0.05 }, makeContext());
+    await vi.advanceTimersByTimeAsync(50);
+    await expect(pending).resolves.toEqual({ duration_seconds: 0.05 });
   });
 
   it("core.for_each invokes body_action per item", async () => {
@@ -104,6 +109,7 @@ describe("Builtin OSS Handlers", () => {
           json: async () => ({ hello: "world" }),
           text: async () => "",
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// AS_ANY_JUSTIFICATION: test cast
         } as any;
       }) as typeof fetch,
     });
@@ -127,6 +133,7 @@ describe("Builtin OSS Handlers", () => {
           json: async () => ({}),
           text: async () => "",
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// AS_ANY_JUSTIFICATION: test cast
         } as any;
       }) as typeof fetch,
     });
@@ -146,6 +153,7 @@ describe("Builtin OSS Handlers", () => {
           text: async () => "<html>Hello</html>",
           json: async () => ({}),
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// AS_ANY_JUSTIFICATION: test cast
         } as any;
       }) as typeof fetch,
     });

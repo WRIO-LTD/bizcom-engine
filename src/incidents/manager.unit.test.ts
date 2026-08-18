@@ -37,7 +37,6 @@ describe("IncidentManager", () => {
     manager.create("inst-1", "step_a", "step_failure", "Error", 3);
 
     const resolved = manager.resolve("inst-1", "step_a");
-    expect(resolved).toBeDefined();
     expect(resolved!.status).toBe("resolved");
     expect(resolved!.resolved_at).toBeTruthy();
 
