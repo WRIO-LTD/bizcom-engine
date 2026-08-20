@@ -694,4 +694,35 @@ describe("ProcessInterpreter", () => {
     expect(result.status).toBe("failed");
     expect(result.context.sys.error_count).toBe(4); // MAX_ERROR_TRANSITIONS(3) + 1
   });
+
+  it("regression: preserves caller-provided sys.instance_id (process instance id)", async () => {
+    adapters.nodeHandler.register("test.action", async () => ({ result: "done" }));
+    const processInstanceId = "b3568617-a36c-4382-984f-1bb558d71452";
+
+    const result = await interpreter.run(simpleDef, undefined, undefined, {
+      instance_id: processInstanceId,
+    });
+
+    expect(result.status).toBe("completed");
+    expect(result.context.sys.instance_id).toBe(processInstanceId);
+  });
+
+  it("regression: sys.instance_id flows to node handlers as the provided process instance id (pending_key bug)", async () => {
+    const received: string[] = [];
+    adapters.nodeHandler.register("test.action", async (_params, context) => {
+      received.push(context.sys.instance_id);
+      return { workflow_instance_id: context.sys.instance_id };
+    });
+
+    const processInstanceId = "b3568617-a36c-4382-984f-1bb558d71452";
+    const result = await interpreter.run(simpleDef, undefined, undefined, {
+      instance_id: processInstanceId,
+    });
+
+    expect(result.status).toBe("completed");
+    expect(received).toEqual([processInstanceId]);
+    expect(result.context.steps["task"]).toEqual({
+      workflow_instance_id: processInstanceId,
+    });
+  });
 });

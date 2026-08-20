@@ -224,7 +224,8 @@ export class ProcessInterpreter {
     return {
       sys: {
         process_id: definition["@id"],
-        instance_id: `${definition["@id"]}-${Date.now()}`,
+        instance_id:
+          systemOverrides?.instance_id || `${definition["@id"]}-${Date.now()}`,
         owner: systemOverrides?.owner || "",
         process_owner: systemOverrides?.process_owner || "",
         owner_identifier: systemOverrides?.owner_identifier || "",

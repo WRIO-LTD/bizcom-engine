@@ -1,6 +1,6 @@
 {
   "name": "@wrio/bizcom-engine",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Open-core BPMN execution engine — platform-agnostic process interpreter with BPMN round-trip, jexl variables, incidents and retry",
   "type": "module",
   "main": "./dist/index.js",
